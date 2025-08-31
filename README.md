@@ -1,307 +1,316 @@
+---
 
-# 🤖 Dashboard Analisis Penggunaan LLMs
-Analisis penggunaan chatbot/LLM tahun 2024–sekarang berbasis **Jupyter Notebook** dan dipresentasikan ulang via **Streamlit** sebagai dashboard interaktif. Isi utama: *Latar Belakang, Pertanyaan Bisnis, Visualisasi Data (Popularitas, Topik/N-gram, Win-Rate + Wilson CI, TTS), Fit-for-Purpose (Topik × Model), dan Kesimpulan Otomatis.*
+# Dashboard Analisis Penggunaan LLMs (Single-File)
+
+Website responsif berbasis satu berkas `index.html` untuk mempresentasikan hasil analisis data dari notebook **Proyek_Analisis_Data.ipynb**.  
+Mendukung unggah **CSV/JSON**, filter multi-kolom, KPI ringkas, dan visual interaktif (Plotly).
+
+> **Privasi:** Semua pemrosesan berlangsung **di sisi klien** (browser). Tidak ada data yang dikirim ke server mana pun.
+
+> **Sumber Dataset:** https://huggingface.co/datasets/lmarena-ai/arena-human-preference-55k
+
+> **Interactive Visualization:** https://analisis-penggunaan-llm-s.vercel.app/
 
 ---
 
-## 🔎 Ringkas (TL;DR)
-```bash
-# 1) Buat environment & install dependensi
-python -m venv .venv
-# Windows
-. .venv/Scripts/activate
-# macOS/Linux
-# source .venv/bin/activate
-pip install -r requirements.txt
+## ✨ Fitur Utama
 
-# 2) Siapkan data (taruh CSV di folder data/)
-#    - data/usage.csv
-#    - data/winrate.csv (opsional)
-#    - data/ngrams.csv (opsional)
-
-# 3) Jalankan dashboard
-streamlit run app.py
-````
-
-> Tidak punya CSV? Anda bisa **upload langsung** dari sidebar aplikasi Streamlit (nonaktifkan toggle “Gunakan data lokal”).
+- **Single-file**: cukup `index.html` (tanpa server).
+    
+- **Responsif**: tampilan desktop & mobile (mobile-first).
+    
+- **Input data fleksibel**: **CSV** atau **JSON (array of objects)**.
+    
+- **Normalisasi kolom otomatis** (alias/sinonim diakui; huruf besar/kecil diabaikan).
+    
+- **Filter lengkap**: rentang tanggal, multi-pilih _Model_ / _Topik_ / _Tugas_, opsi **Solved only**.
+    
+- **KPI ringkas**: total interaksi, rentang tanggal, jumlah model aktif, top model, rata-rata TTS, solve rate, rata-rata token.
+    
+- **Visual interaktif**:
+    
+    - Tren interaksi per tanggal (+ overlay Solve Rate),
+        
+    - Distribusi Model,
+        
+    - Distribusi Jenis Tugas,
+        
+    - Histogram TTS,
+        
+    - **Heatmap Topik × Model** (metrik **count** atau **avg TTS** toggle).
+        
+- **Tabel detail** dengan scroll & **Unduh CSV (terfilter)**.
+    
+- **Demo data** bawaan untuk pratinjau (tombol _Muat Contoh Data_).
+    
 
 ---
 
-## 🧱 Struktur Proyek
+## 🧭 Struktur Proyek yang Disarankan
 
 ```
-.
-├── app.py                        # Dashboard Streamlit (siap jalan)
-├── data/
-│   ├── usage.csv                 # Wajib: interaksi per sesi
-│   ├── winrate.csv               # Opsional: ringkasan preferensi model
-│   └── ngrams.csv                # Opsional: daftar n-gram
-├── notebooks/
-│   └── Proyek_Analisis_Data.ipynb# Analisis di Jupyter Notebook
-├── web/
-│   └── index.html                # Presentasi web statis (opsional)
-├── requirements.txt
-└── README.md
+/proyek-analisis-llms
+├─ index.html                 # Dashboard single-file (siap pakai)
+├─ Proyek_Analisis_Data.ipynb # Notebook analisis utama
+└─ data/
+   ├─ llms_output.csv         # (opsional) ekspor dari notebook
+   └─ llms_output.json        # (opsional) alternatif JSON
 ```
 
----
-
-## 🎯 Tujuan & Pertanyaan Bisnis
-
-- **Model terpopuler** — model mana paling sering dipakai & bagaimana trennya?
-    
-- **Topik/N-gram** — tema/kata kunci yang dominan?
-    
-- **Win-Rate** — model yang paling disukai (dengan _Wilson 95% CI_)?
-    
-- **TTS (Turns-to-Solve)** — efisiensi interaksi (median & p75)?
-    
-- **Fit-for-Purpose** — model terbaik per **Topik × Model**?
-    
+> Catatan: `index.html` tidak otomatis membaca dari `/data`. Pengguna **mengunggah** berkas melalui UI (drag & drop / file picker). Pendekatan ini aman untuk distribusi ke klien.
 
 ---
 
-## 📊 Fitur Dashboard
+## 🚀 Cara Pakai Cepat
 
-- **Latar Belakang** & **Pertanyaan Bisnis** (ringkas & jelas)
+1. **Buka `index.html`** langsung di browser (double-click) **atau** pakai ekstensi _Live Server_ (VS Code) untuk pengalaman optimal.
     
-- **KPI Ringkas**: total interaksi, model unik, _solved rate_, median TTS
+2. Klik **Unggah →** pilih **CSV/JSON** hasil ekspor dari notebook.
     
-- **Overview**:
+3. Atur **Filter** (tanggal, model, topik, tugas, solved only) → klik **Terapkan Filter**.
     
-    - Bar chart **Popularitas Model (Top-N)**
-        
-    - Line chart **Tren Harian** per model
-        
-- **Topik & N-gram**:
+4. Navigasi ke **Ringkasan / Visual / Tabel**.
     
-    - Distribusi Topik
-        
-    - Top N-gram (opsi bersihkan **stopwords** EN+ID)
-        
-- **Win-Rate**:
+5. (Opsional) Klik **Unduh CSV (terfilter)** untuk menyimpan subset data.
     
-    - Bar + **error bars** (Wilson 95% CI)
-        
-- **TTS**:
-    
-    - Histogram distribusi TTS
-        
-    - Ringkasan per model (Median & p75)
-        
-- **Fit-for-Purpose**:
-    
-    - Heatmap **Solved-Rate**: _Topik × Model_
-        
-- **Kesimpulan Otomatis** (bullet) dari data yang ada
-    
-- **Filter Sidebar**:
-    
-    - Rentang tanggal
-        
-    - Top-N model untuk grafik
-        
-    - Pilih topik
-        
-    - Stopwords N-gram ON/OFF
-        
-    - Upload CSV (jika tidak pakai data lokal)
-        
 
 ---
 
-## 🗃️ Skema Data (CSV)
+## 🔢 Skema Data & Sinonim Kolom
 
-### 1) `data/usage.csv` (Wajib)
+Dashboard melakukan **pemetaan otomatis** berdasarkan sinonim berikut (case-insensitive):
 
-|Kolom|Tipe|Deskripsi|
-|---|---|---|
-|`date`|datetime|Tanggal/waktu interaksi (format bebas yang dikenali Pandas)|
-|`model`|string|Nama model (mis. `gpt-4o`, `claude-3.5-sonnet`, dll.)|
-|`user_text`|string|(Opsional) Teks permintaan pengguna|
-|`topic`|string|Kategori/topik (Coding, Penulisan, Analisis Data, Terjemahan, dll.)|
-|`tts`|float|Turns-to-Solve (jumlah giliran sampai selesai)|
-|`is_solved`|int {0/1}|1 bila pengguna menilai “beres/puas”, 0 bila tidak|
-|`fit_score`|float|(Opsional) Skor kecocokan model|
+|Kolom Kanonis|Sinonim yang Diakui (contoh)|
+|---|---|
+|`datetime`|`datetime`, `date`, `tanggal`, `time`, `timestamp`, `created_at`, `created`, `dt`, `waktu`|
+|`model`|`model`, `chatbot`, `assistant`, `engine`, `provider`, `llm`, `produk`, `nama_model`|
+|`topic`|`topic`, `topik`, `subject`, `kategori`, `category`, `intent`, `tema`|
+|`task`|`task`, `use_case`, `usecase`, `jenis_tugas`, `pekerjaan`, `job`, `tipe`, `type`|
+|`tts`|`tts`, `turns`, `turns_to_solve`, `conversation_turns`, `steps`, `turn_to_solve`, `turn_to_solved`|
+|`solved`|`solved`, `is_solved`, `success`, `resolved`, `status`, `hasil`, `berhasil`|
+|`tokens_in`|`tokens_in`, `input_tokens`, `prompt_tokens`, `tokens_input`|
+|`tokens_out`|`tokens_out`, `output_tokens`, `completion_tokens`, `tokens_output`|
+|`rating`|`rating`, `score`, `nilai`, `skor`, `satisfaction`, `quality`|
 
-**Contoh minimal:**
+**Tipe nilai yang diharapkan:**
+
+- `datetime`: tanggal/waktu parsable (ISO `YYYY-MM-DD` disarankan).
+    
+- `model`, `topic`, `task`: string.
+    
+- `tts`, `tokens_in`, `tokens_out`, `rating`: numerik.
+    
+- `solved`: boolean (`true/false`, atau string seperti `berhasil`, `success`, `yes/no`, `1/0`).
+    
+
+---
+
+## 🧪 Contoh Data
+
+**CSV**
 
 ```csv
-date,model,user_text,topic,tts,is_solved,fit_score
-2025-08-20,gpt-4o,"ringkas artikel",Penulisan,3,1,0.9
-2025-08-21,claude-3.5-sonnet,"buat pseudocode",Coding,4,1,0.8
+date,model,topic,task,tts,solved,input_tokens,output_tokens,rating
+2025-07-02,GPT-4o,Koding,Debugging,4,true,380,210,5
+2025-07-03,Claude 3.5 Sonnet,Analisis Data,EDA,6,true,420,260,4
+2025-07-05,Gemini 1.5 Pro,Terjemahan,Menerjemahkan,3,false,300,180,3
 ```
 
-### 2) `data/winrate.csv` (Opsional)
+**JSON (array of objects)**
 
-|Kolom|Tipe|Deskripsi|
-|---|---|---|
-|`model`|string|Nama model|
-|`wins`|int|Banyak “menang / disukai”|
-|`apps`|int|Total percobaan/perbandingan|
-|`win_rate`|float|Rasio menang (`wins/apps`)|
-|`wr_lo`|float|Batas bawah Wilson 95% CI (0–1)|
-|`wr_hi`|float|Batas atas Wilson 95% CI (0–1)|
-
-> Jika `win_rate`, `wr_lo`, `wr_hi` kosong, aplikasi akan **menghitung otomatis** Wilson 95% CI dari `wins` dan `apps`.
-
-### 3) `data/ngrams.csv` (Opsional)
-
-|Kolom|Tipe|Deskripsi|
-|---|---|---|
-|`term`|string|n-gram (unigram/bigram/trigram)|
-|`freq`|int|frekuensi kemunculan|
-
-**Contoh:**
-
-```csv
-term,freq
-data analysis,42
-translate,25
-kode,18
+```json
+[
+  {"date":"2025-07-02","model":"GPT-4o","topic":"Koding","task":"Debugging","tts":4,"solved":true,"input_tokens":380,"output_tokens":210,"rating":5},
+  {"date":"2025-07-03","model":"Claude 3.5 Sonnet","topic":"Analisis Data","task":"EDA","tts":6,"solved":true,"input_tokens":420,"output_tokens":260,"rating":4}
+]
 ```
+
+> Format JSON alternatif yang juga diterima: `{ "data": [ ... ] }`.
 
 ---
 
-## 📓 Ekspor Data dari Notebook
+## 🔗 Ekspor dari Notebook (Pandas)
 
-Di `notebooks/Proyek_Analisis_Data.ipynb`, simpan hasil olahan ke folder `data/`:
+Contoh ringkas untuk mengekspor ke CSV **dengan nama kolom kanonis**:
 
 ```python
-# Pastikan folder data/ ada
-import os, pandas as pd
-os.makedirs("data", exist_ok=True)
+# df = dataframe hasil olahan akhir
+rename_map = {
+    'timestamp':'date', 'created_at':'date',
+    'chatbot':'model',
+    'subject':'topic',
+    'use_case':'task',
+    'turns_to_solve':'tts',
+    'is_solved':'solved',
+    'prompt_tokens':'input_tokens',
+    'completion_tokens':'output_tokens',
+    'score':'rating',
+}
+df_out = df.rename(columns=rename_map)
 
-usage.to_csv("data/usage.csv", index=False)
+# Pastikan tipe data konsisten
+df_out['date'] = pd.to_datetime(df_out['date']).dt.date
+num_cols = ['tts','input_tokens','output_tokens','rating']
+for c in num_cols:
+    df_out[c] = pd.to_numeric(df_out[c], errors='coerce')
 
-# opsional:
-winrate.to_csv("data/winrate.csv", index=False)
-ngrams.to_csv("data/ngrams.csv", index=False)
-```
-
-> Setelah CSV siap, jalankan `streamlit run app.py`. Anda juga bisa meng-upload CSV langsung dari sidebar aplikasi.
-
----
-
-## 🛠️ Instalasi
-
-1. **Python 3.10+** disarankan
-    
-2. Buat **virtual environment** dan pasang dependensi:
-    
-    ```bash
-    python -m venv .venv
-    # Windows
-    . .venv/Scripts/activate
-    # macOS/Linux
-    # source .venv/bin/activate
-    pip install -r requirements.txt
-    ```
-    
-
-**`requirements.txt` (disarankan):**
-
-```
-streamlit>=1.35
-pandas>=2.2
-numpy>=1.26
-plotly>=5.22
+# Ekspor
+df_out.to_csv('data/llms_output.csv', index=False)
+# atau JSON:
+df_out.to_json('data/llms_output.json', orient='records', force_ascii=False)
 ```
 
 ---
 
-## ▶️ Menjalankan Dashboard
+## 🖥️ Panduan UI Singkat
 
-```bash
-streamlit run app.py
-```
-
-Akses di browser (alamat yang ditampilkan terminal), lalu gunakan **sidebar** untuk pengaturan:
-
-- Toggle **Gunakan data lokal** / **Upload CSV**
+- **Unggah**: pilih berkas CSV/JSON atau gunakan **Muat Contoh Data** untuk demo.
     
-- Filter **Rentang tanggal**
+- **Filter & Konteks Data**:
     
-- **Top-N model**, pilih **Topik**
+    - Rentang **tanggal** (From/To),
+        
+    - Multi-pilih **Model**, **Topik**, **Tugas**,
+        
+    - **Solved only**: hanya baris `solved = true`,
+        
+    - **Heatmap metric**: toggle **Avg TTS** (default: **count**).
+        
+- **Ringkasan (KPI)**: total interaksi, rentang tanggal, model aktif & top model, rata-rata TTS, solve rate, rata-rata token.
     
-- Bersihkan **stopwords** untuk N-gram
+- **Visual**:
+    
+    - **Tren Interaksi** (bar) + **Solve Rate** (garis, sumbu kanan),
+        
+    - **Distribusi Model** (bar),
+        
+    - **Distribusi Tugas** (bar, top 20),
+        
+    - **Histogram TTS**,
+        
+    - **Heatmap Topik × Model** (count / avg TTS).
+        
+- **Tabel**: pratinjau hingga 300 baris pertama (untuk performa); gunakan **Unduh CSV** untuk seluruh subset terfilter.
     
 
 ---
 
-## 🧠 Interpretasi & Catatan Metodologis
+## 📱 Responsif & Aksesibilitas
 
-- **Wilson 95% CI** pada Win-Rate membantu mengurangi bias sampel kecil (lebih konservatif daripada proporsi mentah).
+- **Mobile**: Navigasi diperkecil; konten grid otomatis menjadi satu kolom untuk layar sempit.
     
-- **Median & p75 TTS**: median menggambarkan efisiensi tipikal, p75 memberi gambaran _long tail_ percakapan yang lebih lama.
+- **Kontras warna**: tema gelap dengan kontras teks tinggi.
     
-- **Heatmap Topik × Model**: gunakan sebagai dasar routing otomatis—model berbeda bisa unggul di topik tertentu.
+- **Keyboard**: elemen form fokusable, tabel dapat digulir.
     
 
 ---
 
-## 🧪 Troubleshooting
+## ⚙️ Kustomisasi
 
-- **`FileNotFoundError: data/usage.csv`**  
-    → Pastikan file berada di `data/usage.csv` atau **upload** lewat sidebar.
+- **Warna & radius**: ubah variabel CSS di `:root` (`--bg`, `--accent`, `--radius`, dll.).
     
-- **`KeyError: 'model'/'topic'/'tts'`**  
-    → Cek **header kolom** sesuai skema tabel di atas.
+- **Jumlah bin histogram**: `nbinsx` pada grafik TTS (default 20).
     
-- **`ValueError: could not convert string to float: '...'` (kolom `tts`)**  
-    → Pastikan `tts` numerik (hapus teks/NA aneh), simpan ulang CSV.
+- **Batas baris tabel**: `pageSize` (default 300).
     
-- **`ModuleNotFoundError: streamlit/plotly/pandas`**  
-    → Jalankan `pip install -r requirements.txt` di environment aktif.
+- **Metrik heatmap**: toggle **Avg TTS** vs **Count** dari UI.
     
-- **Port sudah dipakai**  
-    → Jalankan `streamlit run app.py --server.port 8502`
+
+---
+
+## 🧩 Pertanyaan Bisnis (Contoh)
+
+1. Model mana yang paling sering dipakai dan untuk topik apa?
+    
+2. Seberapa efisien model berdasarkan **Avg TTS** pada tiap topik?
+    
+3. Pola tren interaksi dan **Solve Rate** harian/bulanan?
+    
+4. Jenis tugas apa yang paling sering/berhasil diselesaikan?
+    
+5. Korelasi kasar antara panjang interaksi (tokens) dan keberhasilan?
+    
+6. Rekomendasi kandidat model _fit-for-purpose_ untuk topik/tugas tertentu?
+    
+
+> Semua pertanyaan di atas bisa dijelajah lewat **Filter**, **KPI**, dan **Heatmap**.
+
+---
+
+## 🛠️ Troubleshooting
+
+- **“Gagal membaca berkas / data kosong”**  
+    Pastikan format **CSV** punya header dan minimal kolom `date` + `model`; atau **JSON** adalah **array of objects**.
+    
+- **Tanggal tidak terbaca**  
+    Gunakan format `YYYY-MM-DD` atau ISO-8601. Untuk Excel serial/Unix epoch, dashboard mencoba mendeteksi otomatis.
+    
+- **Nilai boolean `solved`**  
+    Diterima: `true/false`, `1/0`, `yes/no`, `berhasil/tidak`, `success/failed`.
+    
+- **Angka dengan koma**  
+    Parser menghapus `,` sebelum parsing; pastikan tidak ada simbol selain angka & titik desimal.
     
 - **Grafik kosong**  
-    → Periksa filter (tanggal/topik) dan kolom wajib yang terisi.
+    Periksa filter rentang tanggal & pilihan multi-kolom (semua opsi bisa di-**Clear**).
+    
+- **Dataset besar (> ~10–15k baris)**  
+    Pertimbangkan pre-agregasi di notebook (mis. per tanggal/model), atau sampling.
     
 
 ---
 
-## 🔐 Privasi Data
+## 🧾 Changelog
 
-Gunakan data yang **telah dianonimkan** (hilangkan PII). Hindari menyimpan teks mentah sensitif pada `user_text`.
-
----
-
-## 🗺️ Roadmap (Opsional)
-
-- Impor langsung dari dataset Hugging Face + normalisasi skema
+- **2025-08-31**
     
-- Ekspor PNG/CSV dari tiap grafik
-    
-- Segmentasi vendor/model family & versi
-    
-- Model routing rules otomatis per topik (berdasarkan heatmap)
-    
-- Halaman “Perbandingan Model” + uji statistik antarmodel
-    
-
-
----
-
-## 🤝 Kontribusi
-
-Masukan/Pull Request dipersilakan. Harap pertahankan skema data & gaya visual yang konsisten.
+    - Rilis **dashboard single-file** `index.html`: unggah CSV/JSON, filter lengkap, KPI, tren + solve rate, distribusi model & tugas, histogram TTS, **heatmap Topik × Model** (count/avg TTS), unduh CSV terfilter.
+        
+    - Pemetaan **sinonim kolom** otomatis & demo data untuk pratinjau.
+        
 
 ---
 
 ## 📄 Lisensi
 
-MIT — silakan sesuaikan sesuai kebutuhan institusi/proyek Anda.
+Silakan pilih sesuai kebutuhan proyek Anda (mis. **MIT**). Contoh:
+
+```
+Copyright (c) 2025
+
+Permission is hereby granted, free of charge, to any person obtaining a copy...
+```
 
 ---
 
 ## 🙌 Kredit
 
-- Notebook analisis: `notebooks/Proyek_Analisis_Data.ipynb`
+- **[Plotly.js]** untuk visual interaktif.
     
-- Dashboard: `app.py` (Streamlit + Plotly)
+- **[PapaParse]** untuk parsing CSV di browser.
     
-- Terima kasih kepada kontributor & komunitas riset pembelajaran berbasis data.
+
+---
+
+## 📬 Kontak & Dukungan
+
+- Pertanyaan/feature request: buka _issue_ internal proyek atau hubungi pengelola repositori.
+    
+- Ingin menambahkan metrik/visual baru (mis. _turn cost_, _latency_, _win rate_)? Sertakan contoh data & sketsa output yang diinginkan.
+    
+
+---
+
+## ✅ Checklist untuk Demo ke Klien
+
+-  Siapkan 1–2 **dataset contoh** (CSV + JSON).
+    
+-  Pastikan label kolom sesuai (atau masuk dalam **sinonim**).
+    
+-  Susun **narasi**: 3 insight utama + 1 rekomendasi per topik.
+    
+-  Screenshot halaman **Ringkasan** & **Heatmap** untuk dokumen penawaran.
+    
+-  Gunakan **Unduh CSV (terfilter)** sebagai lampiran _appendix_.
     
