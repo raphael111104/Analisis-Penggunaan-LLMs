@@ -50,6 +50,7 @@
       text-decoration: none
     }
 
+    /* ====== Topbar ====== */
     header {
       position: sticky;
       top: 0;
@@ -122,6 +123,7 @@
       }
     }
 
+    /* ====== Layout ====== */
     main {
       padding: 18px
     }
@@ -164,6 +166,7 @@
       }
     }
 
+    /* ====== Panel ====== */
     .panel {
       background: var(--panel);
       border: 1px solid var(--border);
@@ -197,6 +200,7 @@
       padding: 16px
     }
 
+    /* ====== KPI ====== */
     .kpis {
       display: grid;
       gap: 12px;
@@ -250,6 +254,7 @@
       display: inline-block
     }
 
+    /* ====== Upload & Buttons ====== */
     .upload {
       display: flex;
       flex-wrap: wrap;
@@ -297,6 +302,7 @@
       font-size: 12px
     }
 
+    /* ====== Filter & Konteks Data — responsive (mobile-first) ====== */
     details.filter {
       background: var(--panel);
       border: 1px solid var(--border);
@@ -316,13 +322,15 @@
       border-bottom-style: solid
     }
 
+    /* Grid dasar: 4 kolom di layar besar */
     .filters {
       display: grid;
       gap: 12px;
+      padding: 12px;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      padding: 12px
     }
 
+    /* Label & input */
     .filters label {
       font-size: 12px;
       color: var(--muted);
@@ -340,6 +348,14 @@
       color: var(--text)
     }
 
+    /* Multi-select lebih nyaman digulir */
+    .filters select[multiple] {
+      min-height: 120px;
+      max-height: 220px;
+      overflow: auto;
+    }
+
+    /* Baris chip & tombol */
     .chiprow {
       display: flex;
       flex-wrap: wrap;
@@ -355,6 +371,93 @@
       font-size: 12px
     }
 
+    /* ======= Breakpoints untuk Filter ======= */
+    /* <= 1200px: 3 kolom */
+    @media (max-width:1200px) {
+      .filters {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    /* <= 860px: 2 kolom + beberapa elemen full-width */
+    @media (max-width:860px) {
+      .filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      /* Urutan elemen dalam .filters (tanpa ubah HTML):
+       1) Dari tanggal, 2) Sampai tanggal, 3) Model, 4) Topik, 5) Tugas, 6) Opsi (chips), 7) Tombol */
+      .filters> :nth-child(3),
+      .filters> :nth-child(4),
+      .filters> :nth-child(5),
+      .filters> :nth-child(6),
+      .filters> :nth-child(7) {
+        grid-column: 1 / -1;
+      }
+
+      /* full width */
+      .filters> :nth-child(1),
+      .filters> :nth-child(2) {
+        grid-column: span 1;
+      }
+
+      /* 2 kolom sejajar */
+
+      /* Multi-select makin tinggi di mobile medium */
+      .filters select[multiple] {
+        min-height: 150px;
+      }
+
+      /* Baris tombol jadi grid 2 kolom, tombol ke-3 full width */
+      .filters> :nth-child(7) .chiprow {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .filters> :nth-child(7) .chiprow .btn.small:nth-child(3) {
+        grid-column: 1 / -1;
+      }
+    }
+
+    /* <= 560px: 1 kolom penuh; tombol bertumpuk vertikal */
+    @media (max-width:560px) {
+      .filters {
+        grid-template-columns: 1fr;
+      }
+
+      .filters>* {
+        grid-column: 1 / -1;
+      }
+
+      /* Tinggikan multi-select agar tidak sempit */
+      .filters select[multiple] {
+        min-height: 180px;
+      }
+
+      /* Chip jadi blok agar mudah di-tap */
+      .chiprow {
+        gap: 10px;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+      }
+
+      /* Tombol vertikal (satu per baris) */
+      .filters> :nth-child(7) .chiprow {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .filters .btn.small {
+        width: 100%;
+      }
+    }
+
+    /* ====== Charts ====== */
     .chart {
       width: 100%;
       height: 360px
@@ -364,6 +467,7 @@
       height: 420px
     }
 
+    /* ====== Table ====== */
     table {
       width: 100%;
       border-collapse: collapse
@@ -392,6 +496,7 @@
       border-radius: 14px
     }
 
+    /* ====== Misc ====== */
     .muted {
       color: var(--muted)
     }
@@ -414,6 +519,7 @@
       margin: 18px 0
     }
   </style>
+
 </head>
 
 <body>
