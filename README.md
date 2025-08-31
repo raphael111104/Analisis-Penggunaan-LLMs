@@ -1,339 +1,307 @@
-# Analisis Penggunaan LLMs
 
-> **Status:** Stabil • **Fokus:** validasi metrik & perluasan data • **Output:** Notebook + Streamlit + Web statis
-
-Proyek ini menganalisis penggunaan model LLM (Large Language Models) dari sisi **popularitas**, **kinerja (win-rate dengan Wilson 95% CI)**, **Turns-to-Solve (TTS)**, dan **fit-for-purpose** (proxy solved rate per topik × model). Hasil disajikan dalam:
-
-- **Notebook**: `Proyek_Analisis_Data.ipynb`
-    
-- **Dashboard Streamlit**: `streamlit/dashboard.py`
-    
-- **Web statis**: `web/index.html` + `web/assets/app.js` + `web/assets/styles.css`
-    
+# 🤖 Dashboard Analisis Penggunaan LLMs
+Analisis penggunaan chatbot/LLM tahun 2024–sekarang berbasis **Jupyter Notebook** dan dipresentasikan ulang via **Streamlit** sebagai dashboard interaktif. Isi utama: *Latar Belakang, Pertanyaan Bisnis, Visualisasi Data (Popularitas, Topik/N-gram, Win-Rate + Wilson CI, TTS), Fit-for-Purpose (Topik × Model), dan Kesimpulan Otomatis.*
 
 ---
 
-## 1) Fitur Utama
+## 🔎 Ringkas (TL;DR)
+```bash
+# 1) Buat environment & install dependensi
+python -m venv .venv
+# Windows
+. .venv/Scripts/activate
+# macOS/Linux
+# source .venv/bin/activate
+pip install -r requirements.txt
 
-**Analisis**
+# 2) Siapkan data (taruh CSV di folder data/)
+#    - data/usage.csv
+#    - data/winrate.csv (opsional)
+#    - data/ngrams.csv (opsional)
 
-- Win-Rate per model dengan **Wilson 95% CI** (asymmetric error bars).
-    
-- **TTS** tidak lagi konstan: diturunkan dari multi-sumber (turn, conversation length, tts, list dalam `user_text`, dan proxy panjang teks).
-    
-- Heatmap **Topik × Model** sebagai proxy **fit-for-purpose** (solved rate).
-    
+# 3) Jalankan dashboard
+streamlit run app.py
+````
 
-**Dashboard Streamlit**
-
-- Otomatis membaca `data/usage.csv` dan/atau `data/winrate.csv`.  
-    Fallback: **LMSYS Arena** untuk win-rate bila file lokal kosong.
-    
-- Filter Top-N model, ambang minimal turn, serta ringkasan TTS (median, p75).
-    
-- Visual: error bars Wilson, stripplot distribusi TTS, heatmap topik × model.
-    
-
-**Web statis (Tanpa server)**
-
-- **Sidebar default tersembunyi** (desktop & mobile), tombol **close (X)** berfungsi, plus **backdrop** (klik di luar menutup).
-    
-- Toggle **Heuristik TTS & Solved** (ON/OFF).
-    
-- **Min-N** untuk Win-Rate (filter model dengan sampel kecil).
-    
-- Ekspor chart ke **PNG**; unduh **CSV** hasil filter.
-    
-- Bootstrap otomatis dari `data/*.csv` jika tersedia, atau unggah manual.
-    
+> Tidak punya CSV? Anda bisa **upload langsung** dari sidebar aplikasi Streamlit (nonaktifkan toggle “Gunakan data lokal”).
 
 ---
 
-## 2) Struktur Proyek
+## 🧱 Struktur Proyek
 
 ```
 .
-├─ Proyek_Analisis_Data.ipynb
-├─ requirements.txt
-├─ data/
-│  ├─ usage.csv
-│  ├─ winrate.csv
-│  └─ ngrams.csv
-├─ streamlit/
-│  └─ dashboard.py
-└─ web/
-   ├─ index.html
-   └─ assets/
-      ├─ app.js
-      └─ styles.css
+├── app.py                        # Dashboard Streamlit (siap jalan)
+├── data/
+│   ├── usage.csv                 # Wajib: interaksi per sesi
+│   ├── winrate.csv               # Opsional: ringkasan preferensi model
+│   └── ngrams.csv                # Opsional: daftar n-gram
+├── notebooks/
+│   └── Proyek_Analisis_Data.ipynb# Analisis di Jupyter Notebook
+├── web/
+│   └── index.html                # Presentasi web statis (opsional)
+├── requirements.txt
+└── README.md
 ```
 
 ---
 
-## 3) Skema Data
+## 🎯 Tujuan & Pertanyaan Bisnis
 
-### 3.1 `data/usage.csv` (baris = satu interaksi/percakapan)
-
-Kolom utama (yang dipakai di analisis/dash):
-
-- `date` _(YYYY-MM-DD atau ISO date)_
+- **Model terpopuler** — model mana paling sering dipakai & bagaimana trennya?
     
-- `model` _(string; akan dinormalisasi)_
+- **Topik/N-gram** — tema/kata kunci yang dominan?
     
-- `user_text` _(string; bisa berupa JSON list untuk multi-prompt)_
+- **Win-Rate** — model yang paling disukai (dengan _Wilson 95% CI_)?
     
-- `topic` _(string; jika kosong akan diturunkan heuristik sederhana)_
+- **TTS (Turns-to-Solve)** — efisiensi interaksi (median & p75)?
     
-- `tts` _(opsional, numerik)_
-    
-- `is_solved` _(opsional; {0/1, true/false})_
-    
-- `fit_score` _(opsional; 0..100 atau 0..1)_
-    
-- `turn` _(opsional; numerik)_
-    
-- `conversation` _(opsional; JSON array pesan)_
-    
-
-> Catatan: Jika `turn/tts/is_solved` kosong, web & dashboard menurunkannya via heuristik.
-
-### 3.2 `data/winrate.csv`
-
-Dua format didukung:
-
-1. **Ringkas**: `model,wins,apps` → dihitung Wilson CI di aplikasi.
-    
-2. **Lengkap**: `model,win_rate,wr_lo,wr_hi,apps` → langsung dipakai.
-    
-
-### 3.3 `data/ngrams.csv` (opsional)
-
-- `term,freq` (unigram/bigram populer dari `user_text`).  
-    Jika kosong, web akan menghitung n-gram cepat sebagai fallback.
+- **Fit-for-Purpose** — model terbaik per **Topik × Model**?
     
 
 ---
 
-## 4) Definisi Metrik & Metodologi
+## 📊 Fitur Dashboard
 
-- **Win-Rate**: Proporsi “menang” per model dari pasangan/kompetisi (atau proxy solved dari `usage.csv` bila `winrate.csv` tidak ada). Ketidakpastian ditampilkan sebagai **Wilson 95% CI** (asimetris).
+- **Latar Belakang** & **Pertanyaan Bisnis** (ringkas & jelas)
     
-- **Solved rate (proxy)**: Proporsi sampel dengan `is_solved=true`. Jika kolom hilang, diperkirakan dari sinyal bahasa (“thanks/terima kasih/berhasil/solved/works/mantap/sip/oke/ok”) dan/atau `fit_score`.
+- **KPI Ringkas**: total interaksi, model unik, _solved rate_, median TTS
     
-- **TTS (Turns-to-Solve)**: Jumlah pesan/turn sampai “selesai”. Bila tidak tersedia, diperkirakan dengan urutan: `turn` → panjang `conversation` → nilai `tts` → jumlah item di `user_text` (2×len) → **proxy** panjang teks (≤25→2; 26–100→3; >100→4).
+- **Overview**:
     
-- **Topik × Model**: Heatmap solved rate proxy per kombinasi kategori topik (rule-based sederhana) dan model.
+    - Bar chart **Popularitas Model (Top-N)**
+        
+    - Line chart **Tren Harian** per model
+        
+- **Topik & N-gram**:
     
+    - Distribusi Topik
+        
+    - Top N-gram (opsi bersihkan **stopwords** EN+ID)
+        
+- **Win-Rate**:
+    
+    - Bar + **error bars** (Wilson 95% CI)
+        
+- **TTS**:
+    
+    - Histogram distribusi TTS
+        
+    - Ringkasan per model (Median & p75)
+        
+- **Fit-for-Purpose**:
+    
+    - Heatmap **Solved-Rate**: _Topik × Model_
+        
+- **Kesimpulan Otomatis** (bullet) dari data yang ada
+    
+- **Filter Sidebar**:
+    
+    - Rentang tanggal
+        
+    - Top-N model untuk grafik
+        
+    - Pilih topik
+        
+    - Stopwords N-gram ON/OFF
+        
+    - Upload CSV (jika tidak pakai data lokal)
+        
 
 ---
 
-## 5) Cara Menjalankan (Lokal)
+## 🗃️ Skema Data (CSV)
 
-### 5.1 Persiapan
+### 1) `data/usage.csv` (Wajib)
 
-```bash
-# Python 3.10+ direkomendasikan
-pip install -r requirements.txt
+|Kolom|Tipe|Deskripsi|
+|---|---|---|
+|`date`|datetime|Tanggal/waktu interaksi (format bebas yang dikenali Pandas)|
+|`model`|string|Nama model (mis. `gpt-4o`, `claude-3.5-sonnet`, dll.)|
+|`user_text`|string|(Opsional) Teks permintaan pengguna|
+|`topic`|string|Kategori/topik (Coding, Penulisan, Analisis Data, Terjemahan, dll.)|
+|`tts`|float|Turns-to-Solve (jumlah giliran sampai selesai)|
+|`is_solved`|int {0/1}|1 bila pengguna menilai “beres/puas”, 0 bila tidak|
+|`fit_score`|float|(Opsional) Skor kecocokan model|
+
+**Contoh minimal:**
+
+```csv
+date,model,user_text,topic,tts,is_solved,fit_score
+2025-08-20,gpt-4o,"ringkas artikel",Penulisan,3,1,0.9
+2025-08-21,claude-3.5-sonnet,"buat pseudocode",Coding,4,1,0.8
 ```
 
-### 5.2 Jalankan Dashboard Streamlit
+### 2) `data/winrate.csv` (Opsional)
 
-```bash
-streamlit run streamlit/dashboard.py
+|Kolom|Tipe|Deskripsi|
+|---|---|---|
+|`model`|string|Nama model|
+|`wins`|int|Banyak “menang / disukai”|
+|`apps`|int|Total percobaan/perbandingan|
+|`win_rate`|float|Rasio menang (`wins/apps`)|
+|`wr_lo`|float|Batas bawah Wilson 95% CI (0–1)|
+|`wr_hi`|float|Batas atas Wilson 95% CI (0–1)|
+
+> Jika `win_rate`, `wr_lo`, `wr_hi` kosong, aplikasi akan **menghitung otomatis** Wilson 95% CI dari `wins` dan `apps`.
+
+### 3) `data/ngrams.csv` (Opsional)
+
+|Kolom|Tipe|Deskripsi|
+|---|---|---|
+|`term`|string|n-gram (unigram/bigram/trigram)|
+|`freq`|int|frekuensi kemunculan|
+
+**Contoh:**
+
+```csv
+term,freq
+data analysis,42
+translate,25
+kode,18
 ```
 
-Buka URL yang ditampilkan (default: `http://localhost:8501`).  
-Dashboard akan otomatis:
-
-- Membaca `data/usage.csv` & `data/winrate.csv` bila ada.
-    
-- Menampilkan Win-Rate + **Wilson CI** dan ringkasan **TTS** (dengan heuristik derivasi bila perlu).
-    
-
-### 5.3 Buka Web Statis
-
-Cukup buka `web/index.html` di browser (klik dua kali atau via file server sederhana).  
-Di header tersedia:
-
-- **Upload**: `usage.csv`, `winrate.csv`, `ngrams.csv`
-    
-- **Download**: CSV hasil filter
-    
-- **PNG**: tombol ekspor pada setiap panel
-    
-
-> Web akan mencoba memuat file default dari `../data/*.csv`. Jika tidak ada, unggah berkas Anda.
-
 ---
 
-## 6) Keterbatasan & Validasi
+## 📓 Ekspor Data dari Notebook
 
-**Keterbatasan**
-
-- **Skema percakapan parsial** → TTS sering perlu **proxy** (lihat urutan derivasi).
-    
-- **Label solved heuristik** jika kolom tidak tersedia → potensi _false positive/negative_.
-    
-- **Bias ukuran sampel** → model dengan N kecil dapat tampak ekstrem; gunakan **Min-N** & perhatikan CI.
-    
-- **Klasifikasi topik rule-based** → akurasi lebih rendah dibanding model ML khusus.
-    
-
-**Strategi Validasi**
-
-1. **Audit kualitatif**: sampling 50–100 contoh/cluster untuk cek label solved & topik.
-    
-2. **Stabilitas waktu**: _rolling window_ mingguan; tren yang valid relatif stabil.
-    
-3. **Sensitivitas N**: ulangi analisis pada N ∈ {20, 50, 100}.
-    
-4. **Bandingkan CI**: perhatikan overlap Wilson CI saat membandingkan model.
-    
-5. **Replikasi lintas sumber**: sanity-check dengan dataset eksternal (mis. LMSYS Arena).
-    
-6. **Perkaya skema**: tambahkan `conversation` dan label _ground truth_ pada subset untuk kalibrasi TTS/solved.
-    
-
----
-
-## 7) Panduan Penggunaan
-
-### 7.1 Streamlit
-
-- **Sample rows**: ambil subset acak untuk respons cepat.
-    
-- **Minimal turn untuk TTS**: singkirkan percakapan trivial.
-    
-- **Top-N model**: fokus ke model terpopuler/terbaik.
-    
-- **Output**: chart Win-Rate (Wilson CI), ringkasan TTS (median/p75), stripplot distribusi TTS, heatmap Topik×Model.
-    
-
-### 7.2 Web Statis
-
-- **Sidebar**: default **tersembunyi** → buka dengan tombol ☰; tutup dengan **X**, klik **backdrop**, atau tombol **Esc**.
-    
-- **Heuristik TTS & Solved**: ON untuk data minim; OFF bila data kaya & sudah terlabel.
-    
-- **Min-N Win-Rate**: saring model dengan sampel kecil agar peringkat lebih andal.
-    
-- **Ekspor PNG**: tiap panel punya tombol PNG.
-    
-- **Unduh CSV**: `filtered.csv` untuk replikasi/analisis lanjutan.
-    
-
----
-
-## 8) Reproducibility & Kualitas
-
-- **Dependensi**: lihat `requirements.txt` (pandas, numpy, matplotlib, seaborn, streamlit, datasets, plotly, papaparse, dayjs).
-    
-- **Caching**: `@st.cache_data` di Streamlit mempercepat load.
-    
-- **Normalisasi**: nama model dinormalisasi (menghapus suffix versi panjang).
-    
-- **Saran pengujian (opsional)**: tambahkan `pytest` sederhana untuk:
-    
-    - Validasi kolom wajib di `usage.csv` / `winrate.csv`
-        
-    - Rentang nilai (`win_rate ∈ [0,1]`, `wr_lo ≤ win_rate ≤ wr_hi]`)
-        
-    - JSON valid untuk kolom `conversation` (jika ada)
-        
-
-Contoh sketsa tes cepat:
+Di `notebooks/Proyek_Analisis_Data.ipynb`, simpan hasil olahan ke folder `data/`:
 
 ```python
-def test_usage_columns_exist(df_usage):
-    required = {"date","model","user_text"}
-    assert required.issubset(df_usage.columns)
+# Pastikan folder data/ ada
+import os, pandas as pd
+os.makedirs("data", exist_ok=True)
+
+usage.to_csv("data/usage.csv", index=False)
+
+# opsional:
+winrate.to_csv("data/winrate.csv", index=False)
+ngrams.to_csv("data/ngrams.csv", index=False)
+```
+
+> Setelah CSV siap, jalankan `streamlit run app.py`. Anda juga bisa meng-upload CSV langsung dari sidebar aplikasi.
+
+---
+
+## 🛠️ Instalasi
+
+1. **Python 3.10+** disarankan
+    
+2. Buat **virtual environment** dan pasang dependensi:
+    
+    ```bash
+    python -m venv .venv
+    # Windows
+    . .venv/Scripts/activate
+    # macOS/Linux
+    # source .venv/bin/activate
+    pip install -r requirements.txt
+    ```
+    
+
+**`requirements.txt` (disarankan):**
+
+```
+streamlit>=1.35
+pandas>=2.2
+numpy>=1.26
+plotly>=5.22
 ```
 
 ---
 
-## 9) Deployment
+## ▶️ Menjalankan Dashboard
 
-- **Streamlit Cloud** atau server internal: jalankan `streamlit run streamlit/dashboard.py`.
-    
-- **Web statis**: deploy folder `web/` ke **Vercel/Netlify/GitHub Pages**.
-    
-    - Pastikan folder `data/` ikut dideploy jika ingin bootstrap otomatis; jika tidak, pengguna bisa **upload CSV**.
-        
+```bash
+streamlit run app.py
+```
 
----
+Akses di browser (alamat yang ditampilkan terminal), lalu gunakan **sidebar** untuk pengaturan:
 
-## 10) Changelog (Agustus 2025)
-
-- **Dashboard Streamlit**
+- Toggle **Gunakan data lokal** / **Upload CSV**
     
-    - Win-Rate dengan **Wilson 95% CI** (error bars).
-        
-    - **Derivasi TTS multi-sumber** (tidak lagi konstan).
-        
-    - Fallback LMSYS Arena saat data lokal kosong.
-        
-    - Heatmap Topik×Model + stripplot distribusi TTS.
-        
-- **Web statis**
+- Filter **Rentang tanggal**
     
-    - **Sidebar default tersembunyi**, tombol **X** & **backdrop** (klik luar menutup), dukung **Esc**.
-        
-    - Toggle **Heuristik TTS & Solved**.
-        
-    - **Min-N** untuk Win-Rate.
-        
-    - Ekspor **PNG** & unduh **CSV** hasil filter.
-        
-    - Fallback n-gram jika `ngrams.csv` tidak tersedia.
-        
-
----
-
-## 11) Roadmap
-
-- Tambah **classifier topik** berbasis ML (TF-IDF / embeddngs) mengganti rule-based.
+- **Top-N model**, pilih **Topik**
     
-- **Significance testing** antarmodel (uji proporsi; bootstrap).
-    
-- **CI/CD**: lint + build + deploy otomatis; pre-commit hooks.
-    
-- **Unit test** skema data & validasi lebih sistematis.
-    
-- **Panel drill-down** (klik sel heatmap → tampilkan sampel).
+- Bersihkan **stopwords** untuk N-gram
     
 
 ---
 
-## 12) FAQ
+## 🧠 Interpretasi & Catatan Metodologis
 
-**Q1. Kenapa peringkat model berubah saat Min-N diganti?**  
-A1. Model dengan sampel kecil rentan _variance_ tinggi. Gunakan Min-N lebih besar untuk hasil lebih stabil.
-
-**Q2. Angka TTS kadang angka bulat 2/3/4 — apakah akurat?**  
-A2. Itu hasil **proxy** saat data percakapan tidak lengkap. Tambahkan kolom `turn`/`conversation` untuk TTS yang lebih presisi.
-
-**Q3. Kenapa win-rate saya tidak ada error bars?**  
-A3. Pastikan `apps` > 0. Jika Anda memberi `win_rate,wr_lo,wr_hi`, aplikasi akan langsung memakainya.
-
-**Q4. Chart tidak tampil di web?**  
-A4. Pastikan CSV valid (header benar, pemisah koma) dan tidak ada BOM/encoding aneh. Coba unggah ulang/refresh.
-
----
-
-## 13) Lisensi & Kredit
-
-- **Lisensi**: pilih sesuai kebutuhan (mis. MIT/Apache-2.0).
+- **Wilson 95% CI** pada Win-Rate membantu mengurangi bias sampel kecil (lebih konservatif daripada proporsi mentah).
     
-- **Kredit**: terinspirasi metrik pairwise publik (mis. LMSYS Arena) untuk acuan win-rate.
+- **Median & p75 TTS**: median menggambarkan efisiensi tipikal, p75 memberi gambaran _long tail_ percakapan yang lebih lama.
+    
+- **Heatmap Topik × Model**: gunakan sebagai dasar routing otomatis—model berbeda bisa unggul di topik tertentu.
     
 
 ---
 
-## 14) Kontributor
+## 🧪 Troubleshooting
 
-- **Owner/Lead**: Rafli A.
+- **`FileNotFoundError: data/usage.csv`**  
+    → Pastikan file berada di `data/usage.csv` atau **upload** lewat sidebar.
     
-- **Kontribusi**: silakan ajukan _issue_ atau _pull request_ untuk ide/perbaikan.
+- **`KeyError: 'model'/'topic'/'tts'`**  
+    → Cek **header kolom** sesuai skema tabel di atas.
+    
+- **`ValueError: could not convert string to float: '...'` (kolom `tts`)**  
+    → Pastikan `tts` numerik (hapus teks/NA aneh), simpan ulang CSV.
+    
+- **`ModuleNotFoundError: streamlit/plotly/pandas`**  
+    → Jalankan `pip install -r requirements.txt` di environment aktif.
+    
+- **Port sudah dipakai**  
+    → Jalankan `streamlit run app.py --server.port 8502`
+    
+- **Grafik kosong**  
+    → Periksa filter (tanggal/topik) dan kolom wajib yang terisi.
     
 
-**Kontak**: buka _issue_ di repo atau hubungi langsung sesuai kanal komunikasi tim.
+---
+
+## 🔐 Privasi Data
+
+Gunakan data yang **telah dianonimkan** (hilangkan PII). Hindari menyimpan teks mentah sensitif pada `user_text`.
+
+---
+
+## 🗺️ Roadmap (Opsional)
+
+- Impor langsung dari dataset Hugging Face + normalisasi skema
+    
+- Ekspor PNG/CSV dari tiap grafik
+    
+- Segmentasi vendor/model family & versi
+    
+- Model routing rules otomatis per topik (berdasarkan heatmap)
+    
+- Halaman “Perbandingan Model” + uji statistik antarmodel
+    
+
+
+---
+
+## 🤝 Kontribusi
+
+Masukan/Pull Request dipersilakan. Harap pertahankan skema data & gaya visual yang konsisten.
+
+---
+
+## 📄 Lisensi
+
+MIT — silakan sesuaikan sesuai kebutuhan institusi/proyek Anda.
+
+---
+
+## 🙌 Kredit
+
+- Notebook analisis: `notebooks/Proyek_Analisis_Data.ipynb`
+    
+- Dashboard: `app.py` (Streamlit + Plotly)
+    
+- Terima kasih kepada kontributor & komunitas riset pembelajaran berbasis data.
+    
