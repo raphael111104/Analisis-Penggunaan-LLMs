@@ -26,6 +26,49 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
+# ---- imports & dependency guard ----
+from pathlib import Path
+
+import streamlit as st
+
+# Tampilkan error yang ramah jika ada modul yang hilang
+missing = []
+try:
+    import pandas as pd
+except Exception as e:
+    missing.append(("pandas", str(e)))
+try:
+    import numpy as np
+except Exception as e:
+    missing.append(("numpy", str(e)))
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+except Exception as e:
+    missing.append(("plotly", str(e)))
+
+if missing:
+    st.set_page_config(page_title="Dashboard Analisis LLMs", page_icon="🤖", layout="wide")
+    st.error("Beberapa paket Python belum terpasang.")
+    st.write("Detail:")
+    for name, msg in missing:
+        st.write(f"- **{name}** → {msg}")
+    st.info(
+        "Perbaikan cepat:\n\n"
+        "```bash\n"
+        "pip install -r requirements.txt\n"
+        "# atau\n"
+        "pip install streamlit pandas numpy plotly\n"
+        "```"
+    )
+    st.stop()
+
+# Lanjutkan import standar setelah guard
+from __future__ import annotations
+import os, io, re
+from math import sqrt
+from typing import Tuple, Optional, Dict, Any, List
+
 # ----------------------- Konfigurasi Halaman -----------------------
 st.set_page_config(
     page_title="Dashboard Analisis Penggunaan LLMs",
@@ -530,3 +573,4 @@ st.markdown(
     "<span class='small-muted'>© 2025 • Dashboard Analisis LLMs — dibuat dengan Streamlit + Plotly</span>",
     unsafe_allow_html=True
 )
+
