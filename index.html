@@ -1,11 +1,1125 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="id">
+
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="refresh" content="0; url=./web/index.html" />
-  <title>Redirecting…</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard Analisis Penggunaan LLMs — Satu Berkas</title>
+  <meta name="description"
+    content="Website responsif (single file) untuk mempresentasikan hasil analisis data dari notebook. Dukung unggah CSV/JSON, filter, dan visualisasi interaktif." />
+
+  <!-- Plotly (chart & heatmap) -->
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+  <!-- PapaParse (CSV parser) -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121933;
+      --card: #151d3b;
+      --muted: #9fb0ff;
+      --text: #eaf0ff;
+      --accent: #5b7cfa;
+      --ok: #21c36b;
+      --warn: #ffc857;
+      --danger: #ff6b6b;
+      --border: #22305c;
+      --chip: #1e2a54;
+      --chipText: #bbcafc;
+      --shadow: 0 10px 30px rgba(0, 0, 0, .25);
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.45
+    }
+
+    a {
+      color: var(--muted);
+      text-decoration: none
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: linear-gradient(180deg, rgba(11, 16, 32, 0.95), rgba(11, 16, 32, 0.7));
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border)
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 18px
+    }
+
+    .topbar {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px
+    }
+
+    .logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(80% 80% at 20% 20%, #7aa2ff 0%, #5b7cfa 40%, #2b3d7c 100%);
+      box-shadow: var(--shadow);
+    }
+
+    .brand h1 {
+      font-size: 16px;
+      margin: 0;
+      font-weight: 700;
+      letter-spacing: .3px
+    }
+
+    nav {
+      display: flex;
+      gap: 10px;
+      align-items: center
+    }
+
+    .navbtn {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 13px
+    }
+
+    /* hide nav text on very small screens */
+    @media (max-width:520px) {
+      .navbtn span {
+        display: none
+      }
+
+      .navbtn {
+        padding: 8px
+      }
+    }
+
+    main {
+      padding: 18px
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px
+    }
+
+    .g2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr))
+    }
+
+    .g3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr))
+    }
+
+    .g4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr))
+    }
+
+    @media (max-width:1000px) {
+      .g4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr))
+      }
+    }
+
+    @media (max-width:820px) {
+      .g3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr))
+      }
+    }
+
+    @media (max-width:680px) {
+
+      .g2,
+      .g3,
+      .g4 {
+        grid-template-columns: 1fr
+      }
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow)
+    }
+
+    .panel header {
+      position: static;
+      background: transparent;
+      border: 0
+    }
+
+    .panel .hd {
+      padding: 14px 16px;
+      border-bottom: 1px dashed var(--border);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    .panel .hd h2 {
+      font-size: 15px;
+      margin: 0;
+      font-weight: 700;
+      color: #dbe4ff
+    }
+
+    .panel .bd {
+      padding: 16px
+    }
+
+    .kpis {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(5, minmax(0, 1fr))
+    }
+
+    @media (max-width:1100px) {
+      .kpis {
+        grid-template-columns: repeat(3, minmax(0, 1fr))
+      }
+    }
+
+    @media (max-width:720px) {
+      .kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr))
+      }
+    }
+
+    @media (max-width:460px) {
+      .kpis {
+        grid-template-columns: 1fr
+      }
+    }
+
+    .kpi {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px
+    }
+
+    .kpi small {
+      color: var(--muted);
+      letter-spacing: .3px
+    }
+
+    .kpi .val {
+      font-weight: 800;
+      font-size: 24px
+    }
+
+    .kpi .delta {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: var(--chip);
+      color: var(--chipText);
+      display: inline-block
+    }
+
+    .upload {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center
+    }
+
+    .file {
+      position: relative;
+      overflow: hidden;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: var(--card)
+    }
+
+    input[type=file] {
+      background: transparent;
+      color: var(--text)
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--accent);
+      color: white;
+      padding: 10px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600
+    }
+
+    .btn.secondary {
+      background: transparent;
+      color: var(--text)
+    }
+
+    .btn.ghost {
+      background: transparent;
+      border-style: dashed
+    }
+
+    .btn.small {
+      padding: 8px 10px;
+      font-size: 12px
+    }
+
+    details.filter {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius)
+    }
+
+    details.filter>summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 12px 16px;
+      font-weight: 700;
+      color: #dce3ff;
+      border-bottom: 1px dashed var(--border)
+    }
+
+    details.filter[open]>summary {
+      border-bottom-style: solid
+    }
+
+    .filters {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      padding: 12px
+    }
+
+    .filters label {
+      font-size: 12px;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 6px
+    }
+
+    .filters select,
+    .filters input[type="date"] {
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text)
+    }
+
+    .chiprow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px
+    }
+
+    .chip {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      background: var(--chip);
+      color: var(--chipText);
+      border-radius: 999px;
+      font-size: 12px
+    }
+
+    .chart {
+      width: 100%;
+      height: 360px
+    }
+
+    .chart.tall {
+      height: 420px
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--border);
+      padding: 10px;
+      font-size: 13px;
+      text-align: left;
+      vertical-align: top
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: var(--panel);
+      z-index: 1
+    }
+
+    .tablewrap {
+      max-height: 420px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 14px
+    }
+
+    .muted {
+      color: var(--muted)
+    }
+
+    .note {
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    .footer {
+      opacity: .7;
+      padding: 28px 0;
+      text-align: center;
+      font-size: 12px
+    }
+
+    .seg {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 18px 0
+    }
+  </style>
 </head>
+
 <body>
-  <p>Redirecting to <a href="./web/index.html">Dashboard Analisis LLMs</a>…</p>
+  <header>
+    <div class="wrap topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">🤖</div>
+        <h1>Dashboard Analisis Penggunaan LLMs</h1>
+      </div>
+      <nav>
+        <a class="navbtn" href="#unggah" title="Unggah Data"><span>Unggah</span> ⬆️</a>
+        <a class="navbtn" href="#ringkasan" title="Ringkasan"><span>Ringkasan</span> 📊</a>
+        <a class="navbtn" href="#visual" title="Visualisasi"><span>Visual</span> 📈</a>
+        <a class="navbtn" href="#tabel" title="Tabel"><span>Tabel</span> 🧮</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- Unggah + Panduan -->
+    <section id="unggah" class="panel">
+      <div class="hd">
+        <h2>1) Unggah Output Notebook (CSV/JSON)</h2>
+        <div class="chiprow">
+          <div class="chip">Single-file</div>
+          <div class="chip">Mobile-first</div>
+          <div class="chip">Tanpa server</div>
+        </div>
+      </div>
+      <div class="bd">
+        <div class="upload">
+          <label class="file">
+            <input id="fileInput" type="file" accept=".csv,.json,text/csv,application/json" />
+          </label>
+          <button id="demoBtn" class="btn secondary">Muat Contoh Data</button>
+          <button id="resetBtn" class="btn ghost">Reset</button>
+          <div class="note">Ekspor dari notebook Anda sebagai <b>CSV</b> atau <b>JSON (array of objects)</b>. Kolom yang
+            dikenali (bebas huruf besar/kecil & sinonim): <i>date/time, model, topic, task, tts (turns_to_solve),
+              solved, input_tokens, output_tokens, rating</i>.</div>
+        </div>
+
+        <div class="seg"></div>
+
+        <details class="filter" open>
+          <summary>2) Filter & Konteks Data</summary>
+          <div class="filters">
+            <div>
+              <label>Dari tanggal</label>
+              <input type="date" id="fromDate" />
+            </div>
+            <div>
+              <label>Sampai tanggal</label>
+              <input type="date" id="toDate" />
+            </div>
+            <div>
+              <label>Model (multi)</label>
+              <select id="modelSelect" multiple></select>
+            </div>
+            <div>
+              <label>Topik (multi)</label>
+              <select id="topicSelect" multiple></select>
+            </div>
+            <div>
+              <label>Jenis Tugas (multi)</label>
+              <select id="taskSelect" multiple></select>
+            </div>
+            <div>
+              <label>Opsional</label>
+              <div class="chiprow">
+                <label class="chip"><input id="solvedOnly" type="checkbox" /> hanya yang <b>solved</b></label>
+                <label class="chip"><input id="metricToggle" type="checkbox" /> Heatmap pakai <b>avg TTS</b> (default:
+                  count)</label>
+              </div>
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <div class="chiprow">
+                <button id="applyBtn" class="btn small">Terapkan Filter</button>
+                <button id="clearBtn" class="btn small secondary">Bersihkan Filter</button>
+                <button id="downloadBtn" class="btn small ghost">Unduh CSV (terfilter)</button>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- KPI -->
+    <section id="ringkasan" class="panel" style="margin-top:16px">
+      <div class="hd">
+        <h2>Ringkasan</h2>
+      </div>
+      <div class="bd">
+        <div class="kpis">
+          <div class="kpi">
+            <small>Total Interaksi</small>
+            <div class="val" id="kpi-total">—</div>
+            <div class="delta" id="kpi-range">—</div>
+          </div>
+          <div class="kpi">
+            <small>Model Aktif</small>
+            <div class="val" id="kpi-models">—</div>
+            <small class="muted" id="kpi-top-model">—</small>
+          </div>
+          <div class="kpi">
+            <small>Rata-rata TTS</small>
+            <div class="val" id="kpi-tts">—</div>
+            <small class="muted">turns / percakapan</small>
+          </div>
+          <div class="kpi">
+            <small>Solve Rate</small>
+            <div class="val" id="kpi-solve">—</div>
+            <small class="muted">proporsi "solved"</small>
+          </div>
+          <div class="kpi">
+            <small>Rata-rata Token</small>
+            <div class="val" id="kpi-tokens">—</div>
+            <small class="muted">input + output per interaksi</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Visualisasi -->
+    <section id="visual" class="grid g2" style="margin-top:16px">
+      <div class="panel">
+        <div class="hd">
+          <h2>Trend Interaksi per Tanggal</h2>
+        </div>
+        <div class="bd">
+          <div id="chart-trend" class="chart"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="hd">
+          <h2>Distribusi Model</h2>
+        </div>
+        <div class="bd">
+          <div id="chart-model" class="chart"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="hd">
+          <h2>Distribusi Jenis Tugas</h2>
+        </div>
+        <div class="bd">
+          <div id="chart-task" class="chart"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="hd">
+          <h2>Histogram TTS (Turns to Solve)</h2>
+        </div>
+        <div class="bd">
+          <div id="chart-tts" class="chart"></div>
+        </div>
+      </div>
+      <div class="panel" style="grid-column: 1/-1">
+        <div class="hd">
+          <h2>Heatmap: Topik × Model <span class="muted">(count / avg TTS)</span></h2>
+        </div>
+        <div class="bd">
+          <div id="chart-heatmap" class="chart tall"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tabel -->
+    <section id="tabel" class="panel" style="margin-top:16px">
+      <div class="hd">
+        <h2>Detail Data</h2>
+        <div class="note">Gulir ke samping/ bawah untuk melihat semua kolom & baris.</div>
+      </div>
+      <div class="bd">
+        <div class="tablewrap">
+          <table id="dataTable">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Model</th>
+                <th>Topik</th>
+                <th>Tugas</th>
+                <th>TTS</th>
+                <th>Solved</th>
+                <th>Tokens In</th>
+                <th>Tokens Out</th>
+                <th>Rating</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer">© 2025 — by <i>Rafli A.</i></i>.</div>
+  </main>
+
+  <script>
+    /* ----------------------- UTIL: normalisasi kolom & nilai ----------------------- */
+    const keySynonyms = {
+      datetime: ['datetime', 'date', 'tanggal', 'time', 'timestamp', 'created_at', 'created', 'dt', 'waktu'],
+      model: ['model', 'chatbot', 'assistant', 'engine', 'provider', 'llm', 'produk', 'nama_model'],
+      topic: ['topic', 'topik', 'subject', 'kategori', 'category', 'intent', 'tema'],
+      task: ['task', 'use_case', 'usecase', 'jenis_tugas', 'pekerjaan', 'job', 'tipe', 'type'],
+      tts: ['tts', 'turns', 'turns_to_solve', 'conversation_turns', 'steps', 'turn_to_solve', 'turn_to_solved'],
+      solved: ['solved', 'is_solved', 'success', 'resolved', 'status', 'hasil', 'berhasil'],
+      tokens_in: ['tokens_in', 'input_tokens', 'prompt_tokens', 'tokens_input'],
+      tokens_out: ['tokens_out', 'output_tokens', 'completion_tokens', 'tokens_output'],
+      rating: ['rating', 'score', 'nilai', 'skor', 'satisfaction', 'quality']
+    };
+
+    const truthy = new Set(['true', '1', 'yes', 'ya', 'y', 'berhasil', 'success', 'ok', 'solved', 'resolved']);
+    const falsy = new Set(['false', '0', 'no', 'tidak', 'n', 'gagal', 'failed', 'unsolved', 'unresolved', 'na']);
+
+    function canon(s) { return String(s || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '') }
+    function findKey(obj, candidates) {
+      const map = {}; for (const k of Object.keys(obj)) map[canon(k)] = k;
+      for (const c of candidates) { const ck = canon(c); if (map[ck]) return map[ck]; }
+      // fallback: partial contains
+      for (const c of candidates) { for (const k of Object.keys(obj)) { if (canon(k).includes(canon(c))) return k; } }
+      return null;
+    }
+
+    function parseDate(v) {
+      if (v == null || v === '') return null;
+      const d = new Date(v);
+      if (!isNaN(d)) return d;
+      // try number (excel/unix)
+      if (!isNaN(+v)) {
+        const n = +v;
+        // heuristic: unix seconds vs ms
+        const ms = n < 1e12 ? n * 1000 : n;
+        const d2 = new Date(ms);
+        if (!isNaN(d2)) return d2;
+      }
+      return null;
+    }
+
+    function toNumber(v) {
+      if (v == null || v === '') return null;
+      const n = +String(v).toString().replace(/,/g, '');
+      return isNaN(n) ? null : n;
+    }
+    function toBool(v) {
+      if (v === true || v === false) return v;
+      const s = canon(v);
+      if (truthy.has(s)) return true;
+      if (falsy.has(s)) return false;
+      return null;
+    }
+
+    function ymd(d) { return d ? (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0')) : ''; }
+
+    /* ----------------------- STATE ----------------------- */
+    const state = {
+      raw: [],
+      data: [],         // normalized
+      filtered: [],     // filtered
+      schema: null,
+      filters: {
+        from: null, to: null, models: new Set(), topics: new Set(), tasks: new Set(), solvedOnly: false
+      },
+      heatmapMetricAvgTTS: false
+    };
+
+    /* ----------------------- LOADERS ----------------------- */
+    async function loadCSV(file) {
+      return new Promise((resolve, reject) => {
+        Papa.parse(file, {
+          header: true, skipEmptyLines: true, dynamicTyping: false,
+          complete: (res) => resolve(res.data),
+          error: reject
+        });
+      });
+    }
+    async function loadJSON(file) {
+      const txt = await file.text();
+      const parsed = JSON.parse(txt);
+      if (Array.isArray(parsed)) return parsed;
+      // accept {data:[...]}
+      if (parsed && Array.isArray(parsed.data)) return parsed.data;
+      throw new Error('Format JSON harus array of objects atau {data:[...]}');
+    }
+
+    async function handleFile(file) {
+      const name = file.name.toLowerCase();
+      let rows = [];
+      if (name.endsWith('.csv')) rows = await loadCSV(file);
+      else if (name.endsWith('.json')) rows = await loadJSON(file);
+      else throw new Error('Ekstensi tidak didukung. Gunakan .csv atau .json');
+      ingest(rows);
+    }
+
+    /* ----------------------- INGEST & NORMALIZE ----------------------- */
+    function ingest(rows) {
+      if (!rows || !rows.length) { alert('Data kosong.'); return; }
+
+      // infer schema on first row
+      const sample = rows[0] || {};
+      const schema = {};
+      for (const key in keySynonyms) {
+        schema[key] = findKey(sample, keySynonyms[key]);
+      }
+      state.schema = schema;
+
+      const normalized = rows.map(r => {
+        const d = parseDate(schema.datetime ? r[schema.datetime] : null);
+        const model = schema.model ? String(r[schema.model] || '').trim() : '';
+        const topic = schema.topic ? String(r[schema.topic] || '').trim() : '';
+        const task = schema.task ? String(r[schema.task] || '').trim() : '';
+        const tts = schema.tts ? toNumber(r[schema.tts]) : null;
+        const solved = schema.solved != null ? toBool(r[schema.solved]) : null;
+        const tin = schema.tokens_in ? toNumber(r[schema.tokens_in]) : null;
+        const tout = schema.tokens_out ? toNumber(r[schema.tokens_out]) : null;
+        const rate = schema.rating ? toNumber(r[schema.rating]) : null;
+        return {
+          datetime: d, date: ymd(d), model, topic, task, tts,
+          solved, tokens_in: tin, tokens_out: tout, rating: rate
+        };
+      });
+
+      // store & init filters
+      state.raw = rows;
+      state.data = normalized;
+
+      const dates = normalized.map(x => x.datetime).filter(Boolean).sort((a, b) => a - b);
+      const minD = dates[0] || null, maxD = dates[dates.length - 1] || null;
+
+      state.filters.from = minD ? ymd(minD) : null;
+      state.filters.to = maxD ? ymd(maxD) : null;
+
+      initFilterUI(normalized);
+      applyFilters();
+    }
+
+    /* ----------------------- FILTER UI ----------------------- */
+    function unique(arr) { return Array.from(new Set(arr.filter(Boolean))); }
+    function fillSelect(select, options) {
+      select.innerHTML = '';
+      options.sort((a, b) => a.localeCompare(b, 'id', { sensitivity: 'base' }));
+      for (const opt of options) {
+        const el = document.createElement('option');
+        el.value = opt; el.textContent = opt;
+        el.selected = true;
+        select.appendChild(el);
+      }
+    }
+    function initFilterUI(data) {
+      const models = unique(data.map(d => d.model));
+      const topics = unique(data.map(d => d.topic));
+      const tasks = unique(data.map(d => d.task));
+
+      fillSelect(document.getElementById('modelSelect'), models);
+      fillSelect(document.getElementById('topicSelect'), topics);
+      fillSelect(document.getElementById('taskSelect'), tasks);
+
+      const fromDate = document.getElementById('fromDate');
+      const toDate = document.getElementById('toDate');
+      fromDate.value = state.filters.from || '';
+      toDate.value = state.filters.to || '';
+
+      // store selected sets
+      state.filters.models = new Set(models);
+      state.filters.topics = new Set(topics);
+      state.filters.tasks = new Set(tasks);
+    }
+
+    function getMultiSelectValues(sel) { return new Set(Array.from(sel.selectedOptions).map(o => o.value)); }
+
+    function hookControls() {
+      document.getElementById('applyBtn').addEventListener('click', () => {
+        const from = document.getElementById('fromDate').value || null;
+        const to = document.getElementById('toDate').value || null;
+        state.filters.from = from;
+        state.filters.to = to;
+        state.filters.models = getMultiSelectValues(document.getElementById('modelSelect'));
+        state.filters.topics = getMultiSelectValues(document.getElementById('topicSelect'));
+        state.filters.tasks = getMultiSelectValues(document.getElementById('taskSelect'));
+        state.filters.solvedOnly = document.getElementById('solvedOnly').checked;
+        state.heatmapMetricAvgTTS = document.getElementById('metricToggle').checked;
+        applyFilters();
+      });
+
+      document.getElementById('clearBtn').addEventListener('click', () => {
+        if (!state.data.length) return;
+        initFilterUI(state.data);
+        document.getElementById('solvedOnly').checked = false;
+        document.getElementById('metricToggle').checked = false;
+        const dates = state.data.map(x => x.datetime).filter(Boolean).sort((a, b) => a - b);
+        state.filters.from = dates[0] ? ymd(dates[0]) : null;
+        state.filters.to = dates.length ? ymd(dates[dates.length - 1]) : null;
+        document.getElementById('fromDate').value = state.filters.from || '';
+        document.getElementById('toDate').value = state.filters.to || '';
+        applyFilters();
+      });
+
+      document.getElementById('downloadBtn').addEventListener('click', downloadCSV);
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        state.raw = []; state.data = []; state.filtered = []; state.schema = null;
+        document.getElementById('tableBody').innerHTML = '';
+        ['kpi-total', 'kpi-range', 'kpi-models', 'kpi-top-model', 'kpi-tts', 'kpi-solve', 'kpi-tokens'].forEach(id => document.getElementById(id).textContent = '—');
+        Plotly.purge('chart-trend'); Plotly.purge('chart-model'); Plotly.purge('chart-task'); Plotly.purge('chart-tts'); Plotly.purge('chart-heatmap');
+        document.getElementById('fromDate').value = ''; document.getElementById('toDate').value = '';
+        ['modelSelect', 'topicSelect', 'taskSelect'].forEach(id => document.getElementById(id).innerHTML = '');
+        document.getElementById('solvedOnly').checked = false; document.getElementById('metricToggle').checked = false;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+
+      document.getElementById('fileInput').addEventListener('change', async (e) => {
+        const f = e.target.files?.[0];
+        if (!f) return;
+        try {
+          await handleFile(f);
+        } catch (err) {
+          console.error(err);
+          alert('Gagal membaca berkas: ' + err.message);
+        }
+      });
+
+      document.getElementById('demoBtn').addEventListener('click', () => {
+        const demo = makeDemoData();
+        ingest(demo);
+      });
+
+      document.getElementById('metricToggle').addEventListener('change', (e) => {
+        state.heatmapMetricAvgTTS = e.target.checked;
+        updateHeatmap();
+      });
+    }
+
+    /* ----------------------- FILTER & METRICS ----------------------- */
+    function applyFilters() {
+      let rows = state.data.slice();
+      if (!rows.length) {
+        alert('Silakan unggah data terlebih dahulu.');
+        return;
+      }
+      const f = state.filters;
+
+      rows = rows.filter(r => {
+        // date range
+        if (f.from && r.date && r.date < f.from) return false;
+        if (f.to && r.date && r.date > f.to) return false;
+        // selections
+        if (f.models.size && r.model && !f.models.has(r.model)) return false;
+        if (f.topics.size && r.topic && !f.topics.has(r.topic)) return false;
+        if (f.tasks.size && r.task && !f.tasks.has(r.task)) return false;
+        if (f.solvedOnly && !(r.solved === true)) return false;
+        return true;
+      });
+
+      state.filtered = rows;
+      updateKPIs();
+      drawCharts();
+      fillTable();
+    }
+
+    function mean(arr) { const v = arr.filter(x => x != null && !isNaN(x)); return v.length ? (v.reduce((a, b) => a + b, 0) / v.length) : null; }
+    function sum(arr) { const v = arr.filter(x => x != null && !isNaN(x)); return v.reduce((a, b) => a + b, 0); }
+    function groupBy(arr, keyFn) {
+      const m = new Map();
+      for (const x of arr) {
+        const k = keyFn(x);
+        m.set(k, (m.get(k) || []).concat([x]));
+      }
+      return m;
+    }
+
+    function top1Count(mapCounts) {
+      let best = null, bv = -Infinity;
+      for (const [k, v] of mapCounts.entries()) {
+        if (v > bv) { bv = v; best = k; }
+      }
+      return best ? `${best} (${mapCounts.get(best)})` : '—';
+    }
+
+    function updateKPIs() {
+      const rows = state.filtered;
+      const total = rows.length;
+      document.getElementById('kpi-total').textContent = total.toLocaleString('id-ID');
+
+      const dates = rows.map(r => r.datetime).filter(Boolean).sort((a, b) => a - b);
+      const range = dates.length ? `${ymd(dates[0])} → ${ymd(dates[dates.length - 1])}` : '—';
+      document.getElementById('kpi-range').textContent = range;
+
+      const models = rows.map(r => r.model).filter(Boolean);
+      const uniqModels = new Set(models);
+      document.getElementById('kpi-models').textContent = uniqModels.size || '—';
+
+      const modelCounts = new Map();
+      for (const m of models) { modelCounts.set(m, (modelCounts.get(m) || 0) + 1); }
+      document.getElementById('kpi-top-model').textContent = modelCounts.size ? ("Teratas: " + top1Count(modelCounts)) : '—';
+
+      const mTTS = mean(rows.map(r => r.tts));
+      document.getElementById('kpi-tts').textContent = mTTS != null ? mTTS.toFixed(2) : '—';
+
+      const solvedCnt = rows.filter(r => r.solved === true).length;
+      const solveRate = total ? (solvedCnt / total * 100) : null;
+      document.getElementById('kpi-solve').textContent = solveRate != null ? solveRate.toFixed(1) + '%' : '—';
+
+      const avgTokens = total ? ((sum(rows.map(r => r.tokens_in || 0)) + sum(rows.map(r => r.tokens_out || 0))) / total) : null;
+      document.getElementById('kpi-tokens').textContent = avgTokens != null ? avgTokens.toFixed(0) : '—';
+    }
+
+    /* ----------------------- CHARTS ----------------------- */
+    function layoutBase(title) {
+      return {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        margin: { l: 50, r: 20, t: 30, b: 40 },
+        font: { color: '#eaf0ff' },
+        xaxis: { gridcolor: '#22305c', zerolinecolor: '#22305c' },
+        yaxis: { gridcolor: '#22305c', zerolinecolor: '#22305c' },
+        legend: { orientation: 'h', y: -0.2 },
+        title
+      };
+    }
+
+    function drawCharts() {
+      updateTrend();
+      updateModelShare();
+      updateTaskDist();
+      updateTTS();
+      updateHeatmap();
+    }
+
+    function updateTrend() {
+      const rows = state.filtered.filter(r => r.date);
+      const byDate = groupBy(rows, r => r.date);
+      const dates = Array.from(byDate.keys()).sort();
+      const counts = dates.map(d => byDate.get(d).length);
+      const solvedRate = dates.map(d => {
+        const arr = byDate.get(d);
+        const sr = arr.length ? (arr.filter(x => x.solved === true).length / arr.length * 100) : 0;
+        return +sr.toFixed(1);
+      });
+
+      const data = [
+        { x: dates, y: counts, type: 'bar', name: 'Interaksi', hovertemplate: '%{x}<br>Interaksi: %{y}<extra></extra>' },
+        { x: dates, y: solvedRate, type: 'scatter', mode: 'lines+markers', yaxis: 'y2', name: 'Solve Rate (%)', hovertemplate: '%{x}<br>Solve Rate: %{y}%<extra></extra>' }
+      ];
+      const layout = layoutBase().copyWithin ? layoutBase() : JSON.parse(JSON.stringify(layoutBase()));
+      Object.assign(layout, {
+        yaxis: { title: 'Interaksi', gridcolor: '#22305c' },
+        yaxis2: { title: 'Solve Rate (%)', overlaying: 'y', side: 'right', gridcolor: 'rgba(0,0,0,0)' }
+      });
+      Plotly.react('chart-trend', data, layout, { responsive: true, displayModeBar: true });
+    }
+
+    function updateModelShare() {
+      const rows = state.filtered;
+      const byModel = groupBy(rows, r => r.model || '(kosong)');
+      const labels = Array.from(byModel.keys()).sort((a, b) => byModel.get(b).length - byModel.get(a).length);
+      const values = labels.map(k => byModel.get(k).length);
+
+      const data = [{ type: 'bar', x: labels, y: values, hovertemplate: '%{x}<br>Jumlah: %{y}<extra></extra>' }];
+      const layout = layoutBase();
+      layout.xaxis.title = 'Model'; layout.yaxis.title = 'Jumlah';
+      Plotly.react('chart-model', data, layout, { responsive: true });
+    }
+
+    function updateTaskDist() {
+      const rows = state.filtered;
+      const byTask = groupBy(rows, r => r.task || '(kosong)');
+      const labels = Array.from(byTask.keys()).sort((a, b) => byTask.get(b).length - byTask.get(a).length).slice(0, 20);
+      const values = labels.map(k => byTask.get(k).length);
+      const data = [{ type: 'bar', x: labels, y: values, hovertemplate: '%{x}<br>Jumlah: %{y}<extra></extra>' }];
+      const layout = layoutBase();
+      layout.xaxis.title = 'Tugas'; layout.yaxis.title = 'Jumlah';
+      Plotly.react('chart-task', data, layout, { responsive: true });
+    }
+
+    function updateTTS() {
+      const rows = state.filtered;
+      const tts = rows.map(r => r.tts).filter(v => v != null && !isNaN(v));
+      const data = [{ type: 'histogram', x: tts, nbinsx: 20, hovertemplate: 'TTS: %{x}<br>Jumlah: %{y}<extra></extra>' }];
+      const layout = layoutBase();
+      layout.xaxis.title = 'TTS (turns)'; layout.yaxis.title = 'Jumlah';
+      Plotly.react('chart-tts', data, layout, { responsive: true });
+    }
+
+    function pivotHeatmap(rows, useAvgTTS) {
+      // rows grouped by topic (rows) × model (cols)
+      const models = Array.from(new Set(rows.map(r => r.model || '(kosong)'))).sort();
+      const topics = Array.from(new Set(rows.map(r => r.topic || '(kosong)'))).sort();
+      const z = [];
+      for (const t of topics) {
+        const row = [];
+        for (const m of models) {
+          const arr = rows.filter(r => (r.topic || '(kosong)') === t && (r.model || '(kosong)') === m);
+          if (useAvgTTS) {
+            const vals = arr.map(x => x.tts).filter(v => v != null && !isNaN(v));
+            row.push(vals.length ? + (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : 0);
+          } else {
+            row.push(arr.length);
+          }
+        }
+        z.push(row);
+      }
+      return { x: models, y: topics, z };
+    }
+
+    function updateHeatmap() {
+      const rows = state.filtered;
+      const useAvg = state.heatmapMetricAvgTTS;
+      const { x, y, z } = pivotHeatmap(rows, useAvg);
+      const data = [{
+        type: 'heatmap', x, y, z, hoverongaps: false, colorscale: 'Blues',
+        hovertemplate: useAvg ? 'Model: %{x}<br>Topik: %{y}<br>Avg TTS: %{z}<extra></extra>'
+          : 'Model: %{x}<br>Topik: %{y}<br>Jumlah: %{z}<extra></extra>'
+      }];
+      const layout = layoutBase();
+      layout.xaxis.title = 'Model'; layout.yaxis.title = 'Topik';
+      Plotly.react('chart-heatmap', data, layout, { responsive: true });
+    }
+
+    /* ----------------------- TABLE ----------------------- */
+    function fillTable() {
+      const tb = document.getElementById('tableBody');
+      tb.innerHTML = '';
+      const rows = state.filtered;
+
+      // simple pagination (client-side)
+      const pageSize = 300; // generous; adjust if needed
+      const show = rows.slice(0, pageSize);
+      for (const r of show) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+      <td>${r.date || ''}</td>
+      <td>${esc(r.model)}</td>
+      <td>${esc(r.topic)}</td>
+      <td>${esc(r.task)}</td>
+      <td>${fmtNum(r.tts)}</td>
+      <td>${r.solved === true ? '✓' : (r.solved === false ? '✗' : '')}</td>
+      <td>${fmtNum(r.tokens_in)}</td>
+      <td>${fmtNum(r.tokens_out)}</td>
+      <td>${fmtNum(r.rating)}</td>
+    `;
+        tb.appendChild(tr);
+      }
+    }
+
+    function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
+    function fmtNum(n) { return (n == null || isNaN(n)) ? '' : Number(n).toLocaleString('id-ID'); }
+
+    /* ----------------------- DOWNLOAD CSV ----------------------- */
+    function downloadCSV() {
+      const rows = state.filtered;
+      const headers = ['date', 'model', 'topic', 'task', 'tts', 'solved', 'tokens_in', 'tokens_out', 'rating'];
+      const csv = [headers.join(',')].concat(
+        rows.map(r => [
+          r.date, q(r.model), q(r.topic), q(r.task),
+          safe(r.tts), r.solved, safe(r.tokens_in), safe(r.tokens_out), safe(r.rating)
+        ].join(','))
+      ).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'filtered_llms.csv'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    function q(s) { if (s == null) return ''; const str = String(s); return /[,"]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str; }
+    function safe(n) { return (n == null || isNaN(n)) ? '' : n; }
+
+    /* ----------------------- DEMO DATA (untuk pratinjau) ----------------------- */
+    function makeDemoData() {
+      // 90 hari, 800 interaksi acak
+      const models = ['GPT-4o', 'GPT-4.1', 'Claude 3.5 Sonnet', 'Claude 3.7 Opus', 'Gemini 1.5 Pro', 'Llama 3.1 70B', 'Qwen2.5 72B'];
+      const topics = ['Koding', 'Penelitian', 'Ringkas Teks', 'Terjemahan', 'Analisis Data', 'Strategi Bisnis', 'Edukasi'];
+      const tasks = ['Debugging', 'Menulis', 'Meringkas', 'Menerjemahkan', 'EDA', 'Rekomendasi', 'Rencana Pelajaran'];
+      const out = [];
+      const today = new Date();
+      const start = new Date(today.getTime() - 89 * 24 * 3600 * 1000);
+
+      function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+      function randN(mu, sigma) { // normal-ish via Box–Muller
+        let u = 0, v = 0; while (u === 0) u = Math.random(); while (v === 0) v = Math.random();
+        return Math.round(mu + sigma * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v));
+      }
+
+      for (let i = 0; i < 800; i++) {
+        const d = new Date(start.getTime() + Math.random() * (today - start));
+        const m = rand(models);
+        const t = rand(topics);
+        const task = rand(tasks);
+        const tts = Math.max(1, randN(5, 2));
+        const solved = Math.random() < 0.78 || tts <= 3;
+        const tin = Math.max(50, randN(400, 150));
+        const tout = Math.max(30, randN(220, 100));
+        const rating = Math.min(5, Math.max(1, (solved ? randN(4.3, 0.5) : randN(3.2, 0.7)) / 1));
+        out.push({
+          date: d.toISOString(),
+          model: m, topic: t, task, tts, solved, input_tokens: tin, output_tokens: tout, rating
+        });
+      }
+      return out;
+    }
+
+    /* ----------------------- INIT ----------------------- */
+    (function init() {
+      hookControls();
+      // muat demo otomatis agar tampilan tidak kosong; silakan hapus jika tak diinginkan
+      // ingest(makeDemoData());
+    })();
+  </script>
 </body>
+
 </html>
