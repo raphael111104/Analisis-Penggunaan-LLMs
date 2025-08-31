@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Analisis Penggunaan LLMs</title>
+
+  <!-- Libs -->
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js" defer></script>
+
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+
+<body>
+  <header class="header">
+    <button id="menuOpen" class="icon-btn" aria-label="Buka filter" aria-controls="sidebar" aria-expanded="false">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="currentColor" d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2z" />
+      </svg>
+    </button>
+    <div class="header-title">
+      <h1>Analisis Penggunaan LLMs</h1>
+      <p class="subtitle">Paritas Streamlit: Popularitas, n-gram, Win-Rate (CI), TTS, Fit-for-Purpose</p>
+    </div>
+    <div class="header-right">
+      <label class="file-input">
+        <input id="fileInput" type="file" accept=".csv" />
+        <span>usage.csv</span>
+      </label>
+      <label class="file-input hide-sm">
+        <input id="fileInputWR" type="file" accept=".csv" />
+        <span>winrate.csv</span>
+      </label>
+      <label class="file-input hide-sm">
+        <input id="fileInputNGR" type="file" accept=".csv" />
+        <span>ngrams.csv</span>
+      </label>
+      <a id="btnDownload" class="btn" download="filtered.csv" aria-disabled="true">Unduh</a>
+    </div>
+  </header>
+
+  <aside id="sidebar" class="sidebar" role="complementary" aria-label="Panel filter">
+    <div class="sidebar-header">
+      <h2>Filter</h2>
+      <button id="menuClose" class="icon-btn" aria-label="Tutup filter">
+        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor"
+            d="M18.3 5.7 12 12l-6.3-6.3L4.3 7.1 10.6 13.4 4.3 19.7l1.4 1.4L12 14.8l6.3 6.3 1.4-1.4-6.3-6.3 6.3-6.3-1.4-1.4Z" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="filter">
+      <label>Rentang tanggal</label>
+      <input type="date" id="dateStart" inputmode="numeric" />
+      <input type="date" id="dateEnd" inputmode="numeric" />
+    </div>
+
+    <div class="filter">
+      <label>Model</label>
+      <select id="modelSelect" multiple></select>
+    </div>
+
+    <div class="filter">
+      <label>Topik</label>
+      <select id="topicSelect" multiple></select>
+    </div>
+
+    <div class="filter">
+      <label>Ambang Solved ≤ N Turn</label>
+      <input type="number" id="sltThreshold" min="1" max="20" value="6" />
+    </div>
+
+    <div class="filter">
+      <label>Skala Fit</label>
+      <select id="fitScale">
+        <option value="0_1">0–1</option>
+        <option value="0_100" selected>0–100</option>
+      </select>
+    </div>
+
+    <div class="filter">
+      <label>Min N untuk Win-Rate (sampel)</label>
+      <input type="number" id="minNWinrate" min="1" max="1000" value="30" />
+    </div>
+
+    <div class="filter">
+      <label class="checkbox">
+        <input id="useHeuristics" type="checkbox" checked />
+        <span>Aktifkan heuristik TTS & Solved</span>
+      </label>
+    </div>
+
+    <div class="filter">
+      <button id="btnApply" class="btn primary" type="button">Terapkan Filter</button>
+      <button id="btnReset" class="btn secondary" type="button">Reset</button>
+    </div>
+
+    <details class="help">
+      <summary>ℹ️ Definisi metrik</summary>
+      <ul>
+        <li><b>TTS</b>: jumlah giliran hingga solved (fallback heuristik bila tak tersedia).</li>
+        <li><b>Fit-for-Purpose</b>: proxy solved rate per topik × model.</li>
+        <li><b>Win-Rate</b>: wins/apps per model dengan <i>Wilson 95% CI</i> dan ambang <i>Min N</i>.</li>
+      </ul>
+    </details>
+  </aside>
+
+  <main class="content">
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Percakapan</div>
+        <div id="kpiTotal" class="kpi-value">-</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Median TTS</div>
+        <div id="kpiTTS" class="kpi-value">-</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">% Solved ≤ N</div>
+        <div id="kpiSLT" class="kpi-value">-</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Rata2 Fit</div>
+        <div id="kpiFit" class="kpi-value">-</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Trend Volume & Median TTS</h2>
+        <div class="panel-actions">
+          <button class="btn tertiary" data-export="trendChart" type="button" aria-disabled="true">PNG</button>
+        </div>
+      </div>
+      <div id="trendChart" class="chart"></div>
+      <p id="trendCaption" class="caption"></p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Distribusi TTS</h2>
+        <div class="panel-actions">
+          <button class="btn tertiary" data-export="distChart" type="button" aria-disabled="true">PNG</button>
+        </div>
+      </div>
+      <div id="distChart" class="chart"></div>
+      <p id="distCaption" class="caption"></p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Fit-for-Purpose — Topik × Model</h2>
+        <div class="panel-actions">
+          <button class="btn tertiary" data-export="heatmapChart" type="button" aria-disabled="true">PNG</button>
+        </div>
+      </div>
+      <div id="heatmapChart" class="chart"></div>
+      <p id="heatmapCaption" class="caption"></p>
+      <div id="heatmapInsight" class="insight"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Win-Rate per Model (Wilson CI)</h2>
+        <div class="panel-actions">
+          <button class="btn tertiary" data-export="winrateChart" type="button" aria-disabled="true">PNG</button>
+        </div>
+      </div>
+      <div id="winrateChart" class="chart"></div>
+      <p id="winrateCaption" class="caption"></p>
+      <div id="winrateInsight" class="insight"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Top Unigram/Bigram</h2>
+        <div class="panel-actions">
+          <button class="btn tertiary" data-export="ngramsChart" type="button" aria-disabled="true">PNG</button>
+        </div>
+      </div>
+      <div id="ngramsChart" class="chart"></div>
+      <p id="ngramsCaption" class="caption"></p>
+      <div id="ngramsInsight" class="insight"></div>
+    </section>
+
+    <footer class="footer">
+      <span id="dataStamp">Data: -</span>
+      <br>
+      <span>© Proyek Analisis Data LLMs by <b><i>Rafli A.</i></b></span>
+    </footer>
+  </main>
+
+  <script defer src="assets/app.js"></script>
+</body>
+
+</html>
