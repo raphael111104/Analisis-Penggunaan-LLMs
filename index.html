@@ -613,6 +613,7 @@
   </main>
 
   <script>
+    /* ===================== Dashboard LLMs — Script (siap tempel) ===================== */
     /* ----------------------- UTIL: normalisasi kolom & nilai ----------------------- */
     const keySynonyms = {
       datetime: ['datetime', 'date', 'tanggal', 'time', 'timestamp', 'created_at', 'created', 'dt', 'waktu'],
@@ -638,19 +639,42 @@
       return null;
     }
 
+    // Parser tanggal yang lebih toleran + lokal
     function parseDate(v) {
       if (v == null || v === '') return null;
-      const d = new Date(v);
-      if (!isNaN(d)) return d;
-      // try number (excel/unix)
-      if (!isNaN(+v)) {
-        const n = +v;
-        // heuristic: unix seconds vs ms
+      if (v instanceof Date && !isNaN(v)) return v;
+
+      const s = String(v).trim();
+
+      // dd/mm/yyyy | dd-mm-yyyy | dd.mm.yyyy (+ optional HH:MM(:SS))
+      const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+      if (m) {
+        let [, d, mo, y, hh = '0', mm = '0', ss = '0'] = m;
+        if (y.length === 2) y = '20' + y; // heuristik tahun 2 digit
+        const dt = new Date(+y, +mo - 1, +d, +hh, +mm, +ss); // waktu lokal
+        return isNaN(dt) ? null : dt;
+      }
+
+      // ISO/umum
+      const d1 = new Date(s);
+      if (!isNaN(d1)) return d1;
+
+      // epoch number (detik/ms)
+      const n = +s;
+      if (!isNaN(n)) {
         const ms = n < 1e12 ? n * 1000 : n;
         const d2 = new Date(ms);
         if (!isNaN(d2)) return d2;
       }
       return null;
+    }
+
+    // Parse "YYYY-MM-DD" dari <input type="date"> sebagai lokal midnight
+    function parseDateInputLocal(str) {
+      if (!str) return null;
+      const [y, m, d] = str.split('-').map(Number);
+      if (!y || !m || !d) return null;
+      return new Date(y, m - 1, d, 0, 0, 0, 0);
     }
 
     function toNumber(v) {
@@ -694,8 +718,7 @@
       const txt = await file.text();
       const parsed = JSON.parse(txt);
       if (Array.isArray(parsed)) return parsed;
-      // accept {data:[...]}
-      if (parsed && Array.isArray(parsed.data)) return parsed.data;
+      if (parsed && Array.isArray(parsed.data)) return parsed.data; // {data:[...]}
       throw new Error('Format JSON harus array of objects atau {data:[...]}');
     }
 
@@ -712,7 +735,7 @@
     function ingest(rows) {
       if (!rows || !rows.length) { alert('Data kosong.'); return; }
 
-      // infer schema on first row
+      // infer schema pada baris pertama
       const sample = rows[0] || {};
       const schema = {};
       for (const key in keySynonyms) {
@@ -776,6 +799,12 @@
       fromDate.value = state.filters.from || '';
       toDate.value = state.filters.to || '';
 
+      // batasi range input agar sesuai data
+      fromDate.min = state.filters.from || '';
+      fromDate.max = state.filters.to || '';
+      toDate.min = state.filters.from || '';
+      toDate.max = state.filters.to || '';
+
       // store selected sets
       state.filters.models = new Set(models);
       state.filters.topics = new Set(topics);
@@ -806,8 +835,15 @@
         const dates = state.data.map(x => x.datetime).filter(Boolean).sort((a, b) => a - b);
         state.filters.from = dates[0] ? ymd(dates[0]) : null;
         state.filters.to = dates.length ? ymd(dates[dates.length - 1]) : null;
-        document.getElementById('fromDate').value = state.filters.from || '';
-        document.getElementById('toDate').value = state.filters.to || '';
+        const fromDate = document.getElementById('fromDate');
+        const toDate = document.getElementById('toDate');
+        fromDate.value = state.filters.from || '';
+        toDate.value = state.filters.to || '';
+        // min/max kembali
+        fromDate.min = state.filters.from || '';
+        fromDate.max = state.filters.to || '';
+        toDate.min = state.filters.from || '';
+        toDate.max = state.filters.to || '';
         applyFilters();
       });
 
@@ -854,11 +890,28 @@
       }
       const f = state.filters;
 
+      // Rentang waktu lokal (inklusif)
+      const hasRange = !!(f.from || f.to);
+      let fromMs = -Infinity, toMs = Infinity;
+      if (f.from) {
+        const d = parseDateInputLocal(f.from);
+        if (d) fromMs = d.getTime();
+      }
+      if (f.to) {
+        const d = parseDateInputLocal(f.to);
+        if (d) toMs = new Date(d.getTime() + 24 * 3600 * 1000 - 1).getTime(); // end-of-day
+      }
+
       rows = rows.filter(r => {
-        // date range
-        if (f.from && r.date && r.date < f.from) return false;
-        if (f.to && r.date && r.date > f.to) return false;
-        // selections
+        // date range: bila dipakai, baris tanpa tanggal dibuang
+        if (hasRange) {
+          if (!r.datetime) return false;
+          const t = r.datetime.getTime();
+          if (t < fromMs) return false;
+          if (t > toMs) return false;
+        }
+
+        // selections lain
         if (f.models.size && r.model && !f.models.has(r.model)) return false;
         if (f.topics.size && r.topic && !f.topics.has(r.topic)) return false;
         if (f.tasks.size && r.task && !f.tasks.has(r.task)) return false;
@@ -920,7 +973,7 @@
     }
 
     /* ----------------------- CHARTS ----------------------- */
-    function layoutBase(title) {
+    function layoutBase() {
       return {
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
@@ -928,8 +981,7 @@
         font: { color: '#eaf0ff' },
         xaxis: { gridcolor: '#22305c', zerolinecolor: '#22305c' },
         yaxis: { gridcolor: '#22305c', zerolinecolor: '#22305c' },
-        legend: { orientation: 'h', y: -0.2 },
-        title
+        legend: { orientation: 'h', y: -0.2 }
       };
     }
 
@@ -956,7 +1008,7 @@
         { x: dates, y: counts, type: 'bar', name: 'Interaksi', hovertemplate: '%{x}<br>Interaksi: %{y}<extra></extra>' },
         { x: dates, y: solvedRate, type: 'scatter', mode: 'lines+markers', yaxis: 'y2', name: 'Solve Rate (%)', hovertemplate: '%{x}<br>Solve Rate: %{y}%<extra></extra>' }
       ];
-      const layout = layoutBase().copyWithin ? layoutBase() : JSON.parse(JSON.stringify(layoutBase()));
+      const layout = layoutBase();
       Object.assign(layout, {
         yaxis: { title: 'Interaksi', gridcolor: '#22305c' },
         yaxis2: { title: 'Solve Rate (%)', overlaying: 'y', side: 'right', gridcolor: 'rgba(0,0,0,0)' }
@@ -1090,7 +1142,7 @@
       const start = new Date(today.getTime() - 89 * 24 * 3600 * 1000);
 
       function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-      function randN(mu, sigma) { // normal-ish via Box–Muller
+      function randN(mu, sigma) {
         let u = 0, v = 0; while (u === 0) u = Math.random(); while (v === 0) v = Math.random();
         return Math.round(mu + sigma * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v));
       }
@@ -1116,7 +1168,7 @@
     /* ----------------------- INIT ----------------------- */
     (function init() {
       hookControls();
-      // muat demo otomatis agar tampilan tidak kosong; silakan hapus jika tak diinginkan
+      // Muat demo otomatis? (biarkan OFF agar halaman kosong sampai user unggah)
       // ingest(makeDemoData());
     })();
   </script>
